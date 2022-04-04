@@ -29,6 +29,8 @@ hs_delete() {
     # --tac : reverse order of input; want newest at bottom; but doesn't really appear that way? Nweest commands don't seem to appear;
     # -m : multi select
 
+  echo "$CALLED_COMMAND" >> $BHISTORYLOG
+
   # If selected nothing, then return
   if [[ -z "$USELECTED" ]] ; then
     return
@@ -48,7 +50,7 @@ hs_delete() {
   COUNT=${#strarr[*]};
 
   # Output DELETED: to terminal; then we'll output the deleted lines
-  echo "DELETED:"
+  echo "DELETED($COUNT):"
 
   local STR=''
   # for (( n=0; n < ${#strarr[*]}; n++)); do
@@ -58,7 +60,10 @@ hs_delete() {
     # Print line we're deleting
     echo "$STR";
 
-    # Escape special characters: *, [ and /
+    # Escape special characters: *, [, \and /
+    # I would presume that the order would count? don't want to create \ and then escape it?
+    STR=$(echo "$STR" | sed "s/\\\/\\\\\\\/g");
+      # Escape / character
     STR=$(echo "$STR" | sed "s/\\*/\\\\\\*/g");
       # The * is another special character!!
     STR=$(echo "$STR" | sed "s/\\[/\\\\\\[/g");
@@ -73,6 +78,7 @@ hs_delete() {
 
     # search for the string and delete it from history file;
     sed -i /^"$STR"$/d $BHISTORYLOG;
+      # It's probably very inefficient to write to file each time there is a delete!!
 
   done
 
@@ -107,17 +113,20 @@ hs_search() {
 
 
     # local ENTRY="$CALLED_COMMAND\n$USELECTED"
+    local ENTRY=$CALLED_COMMAND$'\n'$USELECTED
+    # local ENTRY="$CALLED_COMMAND"
+    # ENTRY+=$'\n'
+    # ENTRY+="$USELECTED"
 
     # pass our selection to tee or append to history
-    echo "$USELECTED" | tee -a $BHISTORYLOG
-    # echo "$ENTRY" | tee -a $BHISTORYLOG
+    # echo "$USELECTED" | tee -a $BHISTORYLOG
+    echo "$ENTRY" | tee -a $BHISTORYLOG
       # tee will output the selection as well
       # echo $USELECTED >> "$BHISTORYLOG"
       # >> doesn't output selection; so then would have to echo out earlier
 
-  # else
-  #   local ENTRY="$CALLED_COMMAND"
-  #   echo "$ENTRY" >> $BHISTORYLOG
+  else
+    echo "$CALLED_COMMAND" >> $BHISTORYLOG
   fi
 
   # clear our history; reload history from log; which then allows user access to that command with up-arrow;
@@ -128,7 +137,7 @@ hs_search() {
 # $1, $2, $3 : The 1st, 2nd, 3rd argument, if passed
 # $* : To catch all parameters as a single string:
 # Catch user arguments
-PARAM_ALL=$*;
+PARAM_ALL=$*
 
 # Help parameter
 if [[ $PARAM_ALL == "-h" ]] || [[ $PARAM_ALL == "--help" ]]; then
@@ -148,10 +157,12 @@ CALLED_COMMAND=$(history 1 | awk '{print $2}')
   # Then add back the parameter to the originall called command;
   # We'll then exclude this in our fzw search;
   # This way, the caled command doesn't have to be deleted from history
-CALLED_COMMAND+=" $PARAM_ALL"
+if [[ -n "$PARAM_ALL" ]]; then
+  CALLED_COMMAND+=" $PARAM_ALL"
+fi
 
 # Remove last key entries, ie, hs call; we'll put it back in later;
-# history -d -1
+history -d -1
   # NO longer need to delete the last entry; just hide it temporarily
 # add pending history to bash_history file
 history -a
@@ -159,9 +170,9 @@ history -a
 
 # load history in reverse; remove # entries; remove duplicates
 # BHISTORY=$(tac $BHISTORYLOG | grep -v ^# | grep -v ^"$KEXCLUDE *" | awk '!a[$0]++')
-# BHISTORY=$(tac $BHISTORYLOG | grep -v ^# | awk '!a[$0]++');
 # BHISTORY=$(tac $BHISTORYLOG | grep -v ^# | grep -v ^"$CALLED_COMMAND"$ | awk '!a[$0]++')
-BHISTORY=$(tac $BHISTORYLOG | grep -v ^# | grep -vw "$CALLED_COMMAND" | awk '!a[$0]++')
+# BHISTORY=$(tac $BHISTORYLOG | grep -v ^# | grep -vw "$CALLED_COMMAND" | awk '!a[$0]++')
+BHISTORY=$(tac $BHISTORYLOG | grep -v ^# | awk '!a[$0]++');
 #
   # Not sure if the -vw search is giving me what I intend; has the effect of removing all historical commands, not just the most recent; so if there is 'hs awk' in the history; and I enter 'hs awk', then 'hs awk' can't be found'; Also creates the unfortunate situation that as I type in hs -d, it goes into history; but I can never delete it! because it's filtered away;
   # This is also flawed in that if I call hs, then hs will show up because the CALLED_COMMAND expects a paramter; and there's a space there; so actually need to check for null before concatating;
