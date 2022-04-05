@@ -1,7 +1,33 @@
 #!/bin/env bash
 
-# // 3/22
-# // 2022-04-04 Mon 09:33
+# ------------------------------------------
+### hs : history search
+# ------------------------------------------
+
+  # // 2022-03-18 Fri 06:35
+  # // 2022-04-04 Mon 09:33
+
+  # history with fuzzy search, fzf
+  # This is meant to be a replacement for c-r command; reverse search;
+  # Example:
+  # $ hs mount  # will prefilter for 'mount' keyword
+  # $ hs  # no prefilter; just start typing
+  # This will then save into clipboard and history
+
+  # Enable bracket paste in .bashrc
+  # bind 'set enable-bracketed-paste on'
+    # this prevents auto execution when command is pasted in;
+
+
+# ------------------------------------------
+
+# Check that the script is being called as "source"
+# Not sure how $PS1 variable checks that it's run as source; apepars that if not run
+# as source, then PS1 is an empty string; Otherwise contains some value;
+if [ -z "$PS1" ] ; then
+  echo "This script must be sourced. Use \"source <script>\" instead."
+  exit
+fi
 
 # Location of bash history file
 BHISTORYLOG="$HOME/.bash_history";
@@ -50,7 +76,7 @@ hs_delete() {
   COUNT=${#strarr[*]};
 
   # Output DELETED: to terminal; then we'll output the deleted lines
-  echo "DELETED($COUNT):"
+  echo "DELETE ($COUNT):"
 
   local STR=''
   # for (( n=0; n < ${#strarr[*]}; n++)); do
@@ -62,14 +88,23 @@ hs_delete() {
 
     # Escape special characters: *, [, \and /
     # I would presume that the order would count? don't want to create \ and then escape it?
-    STR=$(echo "$STR" | sed "s/\\\/\\\\\\\/g");
-      # Escape / character
-    STR=$(echo "$STR" | sed "s/\\*/\\\\\\*/g");
-      # The * is another special character!!
-    STR=$(echo "$STR" | sed "s/\\[/\\\\\\[/g");
-      # the [ character
-    STR=$(echo "$STR" | sed "s/\\//\\\\\\//g");
-      # The / slash, since we're using that for our delimiter;
+    if [[ $STR == *\\* ]]; then
+      STR=$(echo "$STR" | sed "s/\\\/\\\\\\\/g");
+        # Escape / character
+    fi
+    if [[ $STR == *\** ]]; then
+      STR=$(echo "$STR" | sed "s/\\*/\\\\\\*/g");
+        # The * is another special character!!
+    fi
+    if [[ $STR == *\[* ]]; then
+      STR=$(echo "$STR" | sed "s/\\[/\\\\\\[/g");
+        # the [ character
+    fi
+    if [[ $STR == *\/* ]]; then
+      STR=$(echo "$STR" | sed "s/\\//\\\\\\//g");
+        # The / slash, since we're using that for our delimiter;
+    fi
+    # Checking for the string before doing the sed regex seems to speed things up;
 
     # There should be a way to escape multiple characters in an or search
     # The sed regex doesn't have to be double-quoted (single quotes don't work);
@@ -79,6 +114,10 @@ hs_delete() {
     # search for the string and delete it from history file;
     sed -i /^"$STR"$/d $BHISTORYLOG;
       # It's probably very inefficient to write to file each time there is a delete!!
+
+    # Was trying to edit a variable instead... not working
+    # BHISTORY=sed s/^"$STR"$//g <<< "$BHISTORY"
+    # BHISTORY=sed "s/$STR//g" <<< "$BHISTORY"
 
   done
 
