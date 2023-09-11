@@ -154,9 +154,6 @@ function hs_delete() {
       STR=$(echo "$STR" | sed "s/\\//\\\\\\//g");
         # The / slash, since we're using that for our delimiter;
     fi
-
-
-
     # Checking for the string before doing the sed regex seems to speed things up;
 
     # There should be a way to escape multiple characters in an or search
@@ -181,8 +178,7 @@ function hs_delete() {
 
 function hs_search() {
 
-  local USELECTED=$(echo "$BHISTORY" | grep -v ^"$CALLED_COMMAND"$ | fzf $HS_STYLE --exact --tac --query="$PARAM_ALL ")
-  # Quoting "$HS_STYLE" doesn't work; not sure why;
+  local USELECTED=$(echo "$BHISTORY" | grep -v ^"$CALLED_COMMAND"$ | fzf $HS_STYLE --exact --tac --query="$PARAM_ALL")
   # local USELECTED=$(echo "$BHISTORY" | fzf --tac --query="$PARAM_ALL")
     # We echo the history file we created and pass to fzf;
     # --tac : reverse order of input; want newest at bottom; but doesn't really appear that way? Nweest commands don't seem to appear;
@@ -201,21 +197,7 @@ function hs_search() {
     # Use this with >>
     # echo "$USELECTED" | xclip
     echo "$USELECTED" | xclip -selection p
-      # -selection primary :
-        # specify which X selection to use 
-        # options are : "primary" to use XA_PRIMARY (default)
-        #             : "secondary" for XA_SECONDARY 
-        #             : "clipboard" for XA_CLIPBOARD 
-        # Can also substitute with abbreviations; 
-        # eg, p for primary; c for clipboard; or clip; sec; etc; anything reasonable, it seems;
-          
-          # 1. p, primary
-            # Cannot ctrl-shift-v!
-          # 2. sec, secondary
-            # Cannot ctrl-shift-v!
-          # 3. c, clip, clipboard
-            # Can ctrl-shift-v with this option
-
+      # Use this with tee command
 
       # xclip -o # supposed to output clipboard to line, but simiilar to echo
       # Was trying to see if I could just auto paste into terminal; doesn't work
@@ -227,23 +209,13 @@ function hs_search() {
       # So figured out a way to add our selection to the bash history log; then user can just up arrow or paste as well;
       # I could use tee or >>>; chose to use tee, because then that precludes the need to echo out anything separately as originally above;
 
-    # Put called command and selected into history
-    #local ENTRY=$CALLED_COMMAND$'\n'$USELECTED
-    local ENTRY="$CALLED_COMMAND"$'\n'"$USELECTED"
-    echo "$ENTRY" >> "$HISTFILE"
-    history -c; history -r
-    #####################################
-
 
     # Output to prompt
     IFS= read -rei "$USELECTED" -p "${PS1@P}" NEW_USELECTED
     # *** If we go below this, it means user pressed enter ***
 
     # Save user's entry
-    # local ENTRY=$CALLED_COMMAND$'\n'$NEW_USELECTED
-    ENTRY="$NEW_USELECTED"
-    echo "$ENTRY" >> "$HISTFILE"
-    ##########################
+    local ENTRY=$CALLED_COMMAND$'\n'$NEW_USELECTED
 
     # local ENTRY="$CALLED_COMMAND\n$USELECTED"
     # local ENTRY=$CALLED_COMMAND$'\n'$USELECTED
@@ -256,7 +228,7 @@ function hs_search() {
     # echo "$ENTRY" | tee -a $HISTFILE
       # This unforutnately outputs both CALLED_COMMAND and USELECTED
     # echo "$USELECTED"  # xxxxxxxxxxx removed
-    # echo "$ENTRY" >> $HISTFILE  #xxxxxxxxxxxxxxxxxxx
+    echo "$ENTRY" >> $HISTFILE
       # tee will output the selection as well
       # echo $USELECTED >> "$HISTFILE"
       # >> doesn't output selection; so then would have to echo out earlier
@@ -266,7 +238,7 @@ function hs_search() {
 
 
   else
-    echo "$CALLED_COMMAND" >> "$HISTFILE"
+    echo "$CALLED_COMMAND" >> $HISTFILE
     history -c; history -r  # Need to add here since removed below
   fi
 
@@ -277,18 +249,14 @@ function hs_search() {
 
 
 
-# $0 : Name of file; Just returns '-bash'
 # $1, $2, $3 : The 1st, 2nd, 3rd argument, if passed
-# $* : To catch all parameters as a single string; Like this: $1$2"
-# $@ : equivalent to, "$1" "$2"; quotes each separately;
-# https://linux.die.net/man/1/bash
+# $* : To catch all parameters as a single string:
 # Catch user arguments
-# PARAM_ALL=$*
-PARAM_ALL="$*"
-# How to catch the # character??
+PARAM_ALL=$*
 
 # Help parameter
-if [[ "$PARAM_ALL" == "-h" ]] || [[ "$PARAM_ALL" == "--help" ]]; then
+if [[ $PARAM_ALL == "-h" ]] || [[ $PARAM_ALL == "--help" ]]; then
+
   #hs_help
   show_help
   return 0
@@ -321,7 +289,7 @@ history -a
 # BHISTORY=$(tac $HISTFILE | grep -v ^# | grep -v ^"$KEXCLUDE *" | awk '!a[$0]++')
 # BHISTORY=$(tac $HISTFILE | grep -v ^# | grep -v ^"$CALLED_COMMAND"$ | awk '!a[$0]++')
 # BHISTORY=$(tac $HISTFILE | grep -v ^# | grep -vw "$CALLED_COMMAND" | awk '!a[$0]++')
-BHISTORY=$(tac "$HISTFILE" | grep -v ^# | awk '!a[$0]++');
+BHISTORY=$(tac $HISTFILE | grep -v ^# | awk '!a[$0]++');
 #
   # Not sure if the -vw search is giving me what I intend; has the effect of removing all historical commands, not just the most recent; so if there is 'hs awk' in the history; and I enter 'hs awk', then 'hs awk' can't be found'; Also creates the unfortunate situation that as I type in hs -d, it goes into history; but I can never delete it! because it's filtered away;
   # This is also flawed in that if I call hs, then hs will show up because the CALLED_COMMAND expects a paramter; and there's a space there; so actually need to check for null before concatating;
@@ -363,20 +331,20 @@ BHISTORY=$(tac "$HISTFILE" | grep -v ^# | awk '!a[$0]++');
 
 # Reverse the order again to correct order
 # <<< Feeding the string to stdin for tac command;
-BHISTORY=$(tac <<< "$BHISTORY")
+BHISTORY=$(tac <<< $BHISTORY);
 # BHISTORY+=$'\n';
 
 # fzf styling; see man fzf; set border; set margin (seems to be in percentage);
 # set the bottom prompt; and set first line above # found;
-HS_STYLE='--border --margin=1 --prompt=:  --header=————————————————————————————————'
+HS_STYLE='--border --margin=1 --prompt=:  --header=————————————————————————————————';
   # Get error if try to put quotes around header with spaces in the dash;
 
 # Delete parameter
-if [[ "$PARAM_ALL" == "-d" ]] || [[ "$PARAM_ALL" == "--delete" ]]; then
+if [[ $PARAM_ALL == "-d" ]] || [[ $PARAM_ALL == "--delete" ]]; then
 
-  hs_delete "$PARAM_ALL";
+  hs_delete $PARAM_ALL;
 
 # Run normal history search function
 else
-  hs_search "$PARAM_ALL";
+  hs_search $PARAM_ALL;
 fi
