@@ -1,12 +1,13 @@
 #!/bin/env bash
 
 #------------------------------------------
-### hs : history search
+### hs_search.sh : history search
 #------------------------------------------
 
   # // 2022-03-18 Fri 06:35
   # // 2022-04-04 Mon 09:33
   # // 2022-10-24 Mon 17:52  # removed fzy search by default;
+  # // 2024-01-27 Sat 01:46  # space bug fix; check that xclip can be run; can't on remote servers;
 
   # history with fuzzy search, fzf
   # This is meant to be a replacement for c-r command; reverse search;
@@ -30,7 +31,7 @@
 ### Conf
 #------------------------------------------
 
-# Location of bash history file
+# Location of bash hs file
 # BHISTORYLOG="$HOME/.bash_history";
 # BHISTORYLOG="$HISTFILE";
 
@@ -97,7 +98,8 @@ EOF
 
 function hs_delete() {
 
-  local USELECTED=$(echo "$BHISTORY" | fzf -m --exact --tac $HS_STYLE)
+  local USELECTED
+  USELECTED=$(echo "$BHISTORY" | fzf -m --exact --tac $HS_STYLE)
     # We echo the history file we created and pass to fzf;
     # --tac : reverse order of input; want newest at bottom; but doesn't really appear that way? Nweest commands don't seem to appear;
     # -m : multi select
@@ -181,7 +183,12 @@ function hs_delete() {
 
 function hs_search() {
 
-  local USELECTED=$(echo "$BHISTORY" | grep -v ^"$CALLED_COMMAND"$ | fzf $HS_STYLE --exact --tac --query="$PARAM_ALL ")
+  if [[ -n "$PARAM_ALL" ]]; then
+      PARAM_ALL="$PARAM_ALL "
+  fi
+
+  local USELECTED
+  USELECTED=$(echo "$BHISTORY" | grep -v ^"$CALLED_COMMAND"$ | fzf $HS_STYLE --exact --tac --query="$PARAM_ALL")
   # Quoting "$HS_STYLE" doesn't work; not sure why;
   # local USELECTED=$(echo "$BHISTORY" | fzf --tac --query="$PARAM_ALL")
     # We echo the history file we created and pass to fzf;
@@ -199,8 +206,23 @@ function hs_search() {
     # copy selection to clipboard
     # echo $USELECTED | xclip && echo $USELECTED
     # Use this with >>
-    # echo "$USELECTED" | xclip
-    echo "$USELECTED" | xclip -selection p
+    # echo -n "$USELECTED" | xclip
+    # echo -n "$USELECTED" | xclip -selection p
+      # ON remote systems, this seems to cause an error;
+      # I also don't remember why I did this???
+      # see xclip_notes.txt
+
+    # Check that xclip command exists and can be called;
+    # If so, then copy selection to copy buffer; if not, then do nothing;
+    # if command xclip <<< "" &>/dev/null; then
+    #     echo -n "$USELECTED" | xclip -selection c
+    # fi
+      # On use, auto copying to buffer may not be such a great idea; screws up
+      # copies I make that I want to paste into terminal;
+
+      # Let's copy the text to clipboard; why didn't I do this originallly?
+      # This still doesn't work on remote servers; have to enable X11 forwarding on SSH;
+
       # -selection primary :
         # specify which X selection to use 
         # options are : "primary" to use XA_PRIMARY (default)
@@ -237,7 +259,8 @@ function hs_search() {
 
     # Output to prompt
     IFS= read -rei "$USELECTED" -p "${PS1@P}" NEW_USELECTED
-    # *** If we go below this, it means user pressed enter ***
+    # *** If we go below this, it means user pressed enter! ***
+    # *** The script should pause here and wait for user input ***
 
     # Save user's entry
     # local ENTRY=$CALLED_COMMAND$'\n'$NEW_USELECTED
@@ -284,8 +307,10 @@ function hs_search() {
 # https://linux.die.net/man/1/bash
 # Catch user arguments
 # PARAM_ALL=$*
-PARAM_ALL="$*"
+# PARAM_ALL="$*"
+PARAM_ALL=$(echo -n "$*" | xargs)
 # How to catch the # character??
+# Remove any spaces
 
 # Help parameter
 if [[ "$PARAM_ALL" == "-h" ]] || [[ "$PARAM_ALL" == "--help" ]]; then
